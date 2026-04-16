@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>案件ダッシュボード | TS Web制作</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", sans-serif;
+      background: #f4f6f9;
+      color: #333;
+      min-height: 100vh;
+    }
+
+    header {
+      background: #1a3a5c;
+      color: white;
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    header h1 { font-size: 18px; font-weight: 700; }
+    header .meta { font-size: 12px; opacity: 0.75; margin-top: 2px; }
+
+    .refresh-btn {
+      background: #f0a500;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+    .refresh-btn:hover { background: #d4900f; }
+
+    .toolbar {
+      padding: 12px 16px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+      background: white;
+      border-bottom: 1px solid #e0e0e0;
+    }
+
+    .filter-btn {
+      padding: 6px 14px;
+      border-radius: 20px;
+      border: 1.5px solid #ccc;
+      background: white;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .filter-btn.active {
+      background: #1a3a5c;
+      color: white;
+      border-color: #1a3a5c;
+    }
+
+    #search-input {
+      flex: 1;
+      min-width: 160px;
+      padding: 7px 14px;
+      border: 1.5px solid #ccc;
+      border-radius: 20px;
+      font-size: 14px;
+      outline: none;
+    }
+    #search-input:focus { border-color: #1a3a5c; }
+
+    .stats {
+      padding: 10px 16px;
+      font-size: 13px;
+      color: #666;
+      background: #f4f6f9;
+    }
+
+    .job-list { padding: 12px 16px; display: flex; flex-direction: column; gap: 10px; }
+
+    .job-card {
+      background: white;
+      border-radius: 10px;
+      padding: 14px 16px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+      border-left: 4px solid #ccc;
+      transition: box-shadow 0.15s;
+    }
+    .job-card:hover { box-shadow: 0 3px 12px rgba(0,0,0,0.13); }
+    .job-card.lancers { border-left-color: #e8392a; }
+    .job-card.crowdworks { border-left-color: #00a4c4; }
+
+    .job-header { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 6px; }
+    .platform-badge {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 10px;
+      white-space: nowrap;
+      margin-top: 2px;
+    }
+    .lancers .platform-badge { background: #fde8e7; color: #e8392a; }
+    .crowdworks .platform-badge { background: #e0f5fa; color: #00a4c4; }
+
+    .job-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: #1a3a5c;
+      text-decoration: none;
+      line-height: 1.4;
+      flex: 1;
+    }
+    .job-title:hover { text-decoration: underline; }
+
+    .job-meta {
+      display: flex;
+      gap: 12px;
+      font-size: 12px;
+      color: #888;
+      margin-bottom: 6px;
+      flex-wrap: wrap;
+    }
+    .job-price { color: #e67e22; font-weight: 700; font-size: 13px; }
+    .job-keyword { background: #f0f4ff; color: #4a6fa5; padding: 1px 8px; border-radius: 10px; }
+
+    .job-desc {
+      font-size: 13px;
+      color: #555;
+      line-height: 1.5;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .job-actions { margin-top: 10px; display: flex; gap: 8px; }
+    .btn-apply {
+      font-size: 12px;
+      padding: 5px 14px;
+      border-radius: 16px;
+      border: none;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .btn-open {
+      background: #1a3a5c;
+      color: white;
+      text-decoration: none;
+      display: inline-block;
+    }
+    .btn-open:hover { background: #142d48; }
+    .btn-claude {
+      background: #f0a500;
+      color: white;
+    }
+    .btn-claude:hover { background: #d4900f; }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: #aaa;
+    }
+    .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+
+    #toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: #333;
+      color: white;
+      padding: 10px 20px;
+      border-radius: 20px;
+      font-size: 14px;
+      transition: transform 0.3s;
+      z-index: 999;
+      pointer-events: none;
+    }
+    #toast.show { transform: translateX(-50%) translateY(0); }
+
+    .loading {
+      text-align: center;
+      padding: 60px;
+      color: #888;
+      font-size: 16px;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>案件ダッシュボード</h1>
+    <div class="meta" id="updated-at">読み込み中...</div>
+  </div>
+  <a id="run-workflow-btn" class="refresh-btn" href="#" target="_blank">
+    ▶ 今すぐ更新
+  </a>
+</header>
+
+<div class="toolbar">
+  <button class="filter-btn active" data-filter="all">すべて</button>
+  <button class="filter-btn" data-filter="lancers">ランサーズ</button>
+  <button class="filter-btn" data-filter="crowdworks">クラウドワークス</button>
+  <input type="text" id="search-input" placeholder="キーワードで絞り込み...">
+</div>
+
+<div class="stats" id="stats-bar"></div>
+
+<div id="job-list" class="job-list">
+  <div class="loading">読み込み中...</div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+  // =========================================================
+  // 設定: GitHubユーザー名とリポジトリ名を入れてください
+  // =========================================================
+  const GITHUB_USER = "tksami22";
+  const GITHUB_REPO = "job-search-bot";
+  // =========================================================
+
+  const WORKFLOW_URL = `https://github.com/${GITHUB_USER}/${GITHUB_REPO}/actions/workflows/search_jobs.yml`;
+  const JSON_URL = `https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/main/docs/jobs.json`;
+
+  document.getElementById("run-workflow-btn").href = WORKFLOW_URL;
+
+  let allJobs = [];
+  let currentFilter = "all";
+  let searchQuery = "";
+
+  // トースト通知
+  function showToast(msg) {
+    const t = document.getElementById("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    setTimeout(() => t.classList.remove("show"), 2500);
+  }
+
+  // 応募文をClipboardにコピー
+  function copyApplyText(job) {
+    const text = `【応募】${job.title}
+
+はじめまして。TS Web制作（高橋）と申します。
+
+${job.platform}にてご掲載の案件を拝見し、ぜひお力になれればとご連絡いたしました。
+
+WordPressサイト制作・修正、HTML/CSS コーディング、LP制作などを得意としており、特に教室・サロン・整体院・医療福祉系のサイト制作の実績がございます。
+
+ポートフォリオ: https://pianobody.com/portfolio.html
+
+ご不明な点はお気軽にご質問ください。どうぞよろしくお願いいたします。`;
+
+    navigator.clipboard.writeText(text)
+      .then(() => showToast("応募文をコピーしました！"))
+      .catch(() => showToast("コピーに失敗しました"));
+  }
+
+  // カード生成
+  function createCard(job, index) {
+    const platform = job.platform === "ランサーズ" ? "lancers" : "crowdworks";
+    const card = document.createElement("div");
+    card.className = `job-card ${platform}`;
+    card.innerHTML = `
+      <div class="job-header">
+        <span class="platform-badge">${job.platform}</span>
+        <a class="job-title" href="${job.url}" target="_blank">${job.title}</a>
+      </div>
+      <div class="job-meta">
+        <span class="job-price">💰 ${job.price || "要確認"}</span>
+        <span class="job-keyword">${job.keyword}</span>
+        <span>${job.fetched_at || ""}</span>
+      </div>
+      ${job.description ? `<div class="job-desc">${job.description}</div>` : ""}
+      <div class="job-actions">
+        <a class="btn-apply btn-open" href="${job.url}" target="_blank">案件を開く</a>
+        <button class="btn-apply btn-claude" onclick="copyApplyText(${JSON.stringify(job).replace(/"/g, '&quot;')})">
+          応募文をコピー
+        </button>
+      </div>
+    `;
+    return card;
+  }
+
+  // 表示を更新
+  function renderJobs() {
+    const list = document.getElementById("job-list");
+    const filtered = allJobs.filter(job => {
+      const matchFilter =
+        currentFilter === "all" ||
+        (currentFilter === "lancers" && job.platform === "ランサーズ") ||
+        (currentFilter === "crowdworks" && job.platform === "クラウドワークス");
+      const q = searchQuery.toLowerCase();
+      const matchSearch = !q ||
+        job.title.toLowerCase().includes(q) ||
+        (job.description || "").toLowerCase().includes(q) ||
+        job.keyword.toLowerCase().includes(q);
+      return matchFilter && matchSearch;
+    });
+
+    document.getElementById("stats-bar").textContent =
+      `${filtered.length}件表示 / 合計 ${allJobs.length}件`;
+
+    list.innerHTML = "";
+    if (filtered.length === 0) {
+      list.innerHTML = `<div class="empty-state"><div class="icon">🔍</div>該当する案件がありません</div>`;
+      return;
+    }
+    filtered.forEach((job, i) => list.appendChild(createCard(job, i)));
+  }
+
+  // データ読み込み
+  async function loadJobs() {
+    try {
+      const res = await fetch(JSON_URL + "?t=" + Date.now());
+      if (!res.ok) throw new Error("取得失敗");
+      const data = await res.json();
+      allJobs = data.jobs || [];
+      document.getElementById("updated-at").textContent =
+        `最終更新: ${data.updated_at} (${allJobs.length}件)`;
+      renderJobs();
+    } catch (e) {
+      document.getElementById("job-list").innerHTML =
+        `<div class="empty-state">
+          <div class="icon">⚠️</div>
+          データを読み込めませんでした。<br>
+          GitHubユーザー名の設定を確認してください。
+        </div>`;
+      document.getElementById("updated-at").textContent = "読み込みエラー";
+    }
+  }
+
+  // フィルターボタン
+  document.querySelectorAll(".filter-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      currentFilter = btn.dataset.filter;
+      renderJobs();
+    });
+  });
+
+  // 検索
+  document.getElementById("search-input").addEventListener("input", e => {
+    searchQuery = e.target.value;
+    renderJobs();
+  });
+
+  loadJobs();
+</script>
+</body>
+</html>

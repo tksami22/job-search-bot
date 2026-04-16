@@ -1,0 +1,63 @@
+name: 案件収集
+
+on:
+  # 手動実行（GitHubサイト・アプリから「Run workflow」ボタンで即時実行）
+  workflow_dispatch:
+
+  # 自動スケジュール（平日 JST 9:00 と 18:00）
+  schedule:
+    - cron: '0 0 * * 1-5'   # JST 9:00
+    - cron: '0 9 * * 1-5'   # JST 18:00
+
+permissions:
+  contents: write   # jobs.json をコミットするために必要
+
+jobs:
+  search:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: リポジトリをチェックアウト
+        uses: actions/checkout@v4
+
+      # 前回の既読リストをキャッシュから復元（重複通知防止）
+      - name: 既読リストをキャッシュから復元
+        uses: actions/cache@v4
+        with:
+          path: seen_jobs.json
+          key: seen-jobs-${{ runner.os }}
+          restore-keys: |
+            seen-jobs-
+
+      - name: Python をセットアップ
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 依存ライブラリをインストール
+        run: pip install -r requirements.txt
+
+      - name: 案件を収集・Gmail通知
+        env:
+          GMAIL_FROM:   ${{ secrets.GMAIL_FROM }}
+          GMAIL_TO:     ${{ secrets.GMAIL_TO }}
+          GMAIL_APP_PW: ${{ secrets.GMAIL_APP_PW }}
+        run: python search_jobs.py
+
+      # docs/jobs.json をリポジトリにコミット → GitHub Pages に自動反映
+      - name: jobs.json をコミット
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/jobs.json
+          git diff --cached --quiet || git commit -m "chore: 案件データを更新 [skip ci]"
+          git push
+
+      # 既読リストを保存（次回実行時に引き継ぐ）
+      - name: 既読リストを保存
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: seen_jobs.json
+          key: seen-jobs-${{ runner.os }}-${{ github.run_id }}
